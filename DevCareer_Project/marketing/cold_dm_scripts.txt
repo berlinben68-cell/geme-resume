@@ -1,0 +1,41 @@
+# Cold DM Scripts for DevCareer OS
+
+## Strategy
+Don't sell a "resume service." Sell "passing the CTO gate."
+Target: Software Engineers, Data Scientists, DevOps.
+
+---
+
+## Script 1: The "Peer Review" (Soft Sell)
+**Context:** Good for community groups or casual connections.
+
+"Hey [Name], I noticed you're also working with [Tech Stack]. 
+I'm building a tool that helps devs pass the automated CTO screening by optimizing their GitHub and Resume architecture. 
+Mind if I send you a quick example of what the output looks like? No pressure, just looking for feedback."
+
+---
+
+## Script 2: The "Value First" (Free Value)
+**Context:** High-value targets. You give them something before asking for money.
+
+"Hi [Name], I saw your profile and noticed you have great experience with [Skill], but your GitHub doesn't fully show your architectural depth.
+I ran a quick analysis and generated a 'CTO-Level' architecture diagram for your pinned project. 
+Here it is: [Link to Image/Screenshot]
+If you want the full breakdown + a resume update to match, let me know. Happy to help."
+
+---
+
+## Script 3: The "Direct ROI" (Hard Sell)
+**Context:** People actively looking for jobs ("Open to Work").
+
+"Hey [Name], saw you're open to new roles. 
+I specialize in rewriting resumes for the [India/UAE] market to bypass ATS filters and impress CTOs.
+My last client got 3 interviews in week 1 after we restructured their project portfolio.
+Are you free for a 5-min chat to see if I can help you do the same?"
+
+---
+
+## Follow-Up Script (2 Days Later)
+"Hey [Name], just bumping this. 
+I also have a list of 50+ companies hiring for [Role] in [Location] right now. 
+If you work with me, I'll share that list for free. Let me know!"

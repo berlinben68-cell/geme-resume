@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+python-multipart
+gitpython
+openai
+langchain
+pydantic
+beautifulsoup4
+requests

@@ -1,0 +1,30 @@
+```mermaid
+sequenceDiagram
+    participant User App
+    participant Load Balancer
+    participant Traffic Data Ingestion Service
+    participant Route Calculation Service
+    participant Congestion Detection Service
+    participant User Profile Service
+    participant Notification Service
+    participant WhatsApp API
+    participant Database
+
+    User App->>Load Balancer: Traffic data update request
+    Load Balancer->>Traffic Data Ingestion Service: Route data
+    Traffic Data Ingestion Service->>Route Calculation Service: Get route data
+    Route Calculation Service->>Database: Query Routes
+    Database-->>Route Calculation Service: Route Data
+    Route Calculation Service-->>Traffic Data Ingestion Service: Return Routes
+    Traffic Data Ingestion Service->>Congestion Detection Service: Analyze traffic data
+    Congestion Detection Service->>Database: Query historical traffic data
+    Database-->>Congestion Detection Service: Historical traffic data
+    Congestion Detection Service-->>Traffic Data Ingestion Service: Report congestion
+    Traffic Data Ingestion Service->>User Profile Service: Get user details based on routes
+    User Profile Service->>Database: Query User Profiles
+    Database-->>User Profile Service: User Profiles
+    User Profile Service-->>Traffic Data Ingestion Service: Return User details (WhatsApp Number, Preferred Routes)
+    Traffic Data Ingestion Service->>Notification Service: Trigger Notification
+    Notification Service->>WhatsApp API: Send Notification
+    WhatsApp API->>User App: Traffic Update Notification
+```

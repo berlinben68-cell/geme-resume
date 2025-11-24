@@ -1,0 +1,51 @@
+Project_Name/
+├── docker-compose.yml
+├── .env.example
+├── README.md
+├── traffic_data_ingestion/
+│   ├── Dockerfile
+│   ├── src/
+│   │   ├── main.py
+│   │   ├── api.py
+│   │   ├── models.py
+│   │   └── utils.py
+│   ├── requirements.txt
+│   └── README.md
+├── route_calculation/
+│   ├── Dockerfile
+│   ├── src/
+│   │   ├── main.py
+│   │   ├── route_calculator.py
+│   │   └── db_client.py
+│   ├── requirements.txt
+│   └── README.md
+├── congestion_detection/
+│   ├── Dockerfile
+│   ├── src/
+│   │   ├── main.py
+│   │   ├── congestion_analyzer.py
+│   │   └── historical_data.py
+│   ├── requirements.txt
+│   └── README.md
+├── user_profile_service/
+│   ├── Dockerfile
+│   ├── src/
+│   │   ├── main.py
+│   │   ├── user_api.py
+│   │   └── data_access.py
+│   ├── requirements.txt
+│   └── README.md
+├── notification_service/
+│   ├── Dockerfile
+│   ├── src/
+│   │   ├── main.py
+│   │   ├── whatsapp_client.py
+│   │   └── notification_sender.py
+│   ├── requirements.txt
+│   └── README.md
+└── traffic_simulator/
+    ├── Dockerfile
+    ├── src/
+    │   └── traffic_generator.py
+    ├── requirements.txt
+    └── README.md

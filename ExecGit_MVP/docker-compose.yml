@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  # Backend API (FastAPI)
+  api:
+    build: 
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: execgit_api
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://user:password@db:5432/execgit_db
+      - SECRET_KEY=${SECRET_KEY}
+      - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID}
+      - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET}
+    depends_on:
+      - db
+    networks:
+      - execgit_net
+
+  # Frontend Client (React)
+  client:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.client
+    container_name: execgit_client
+    ports:
+      - "3000:80" # Nginx inside container serves on 80
+    depends_on:
+      - api
+    networks:
+      - execgit_net
+
+  # Database (PostgreSQL)
+  db:
+    image: postgres:15-alpine
+    container_name: execgit_db
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=execgit_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - execgit_net
+
+  # Reverse Proxy (Nginx) - Optional if using managed load balancer, but good for self-hosted
+  nginx:
+    image: nginx:alpine
+    container_name: execgit_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - api
+      - client
+    networks:
+      - execgit_net
+
+networks:
+  execgit_net:
+    driver: bridge
+
+volumes:
+  postgres_data:
