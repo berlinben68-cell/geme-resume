@@ -263,7 +263,7 @@ def get_role_and_stack_extraction_prompt(resume_text):
     Returns the prompt to extract the most likely Target Role and Tech Stack from a resume.
     """
     return f"""
-    Analyze the following resume and identify the candidate's most likely **Target Job Role** and **Core Tech Stack**.
+    Analyze the following resume and identify the candidate's most likely **Target Job Role**, **Core Tech Stack**, and **LinkedIn Profile URL**.
     
     Resume Content:
     {resume_text}
@@ -271,10 +271,13 @@ def get_role_and_stack_extraction_prompt(resume_text):
     Output strictly in JSON format:
     {{
         "role": "Suggested Job Title (e.g. Senior Java Developer)",
-        "stack": "Top 5-7 Tech Skills (comma separated)"
+        "stack": "Top 5-7 Tech Skills (comma separated)",
+        "linkedin_url": "Extract LinkedIn URL if present (e.g. linkedin.com/in/...), else empty string",
+        "location": "City, Country (e.g. Dubai, UAE or Bangalore, India)",
+        "industry": "Most likely industry (e.g. Technology, Finance, Consulting, Healthcare, Retail)"
     }}
     """
-
+    
 def get_naukri_optimizer_prompt(resume_text, target_role):
     """
     Returns the prompt to generate a Naukri.com Optimization Kit.
@@ -371,37 +374,45 @@ def get_resume_parsing_prompt(resume_text):
     Returns the prompt to extract structured data for the Resume Builder.
     """
     return f"""
-    Act as a Data Extraction Specialist.
-    Extract data from the following resume text into a strict JSON format compatible with a resume builder.
+    Act as an Elite Executive Resume Writer and Data Extraction Specialist.
+    Your task is to transform the provided resume text (from PDF/DOCX/LinkedIn) into a perfectly structured, Board-Ready JSON format.
     
     Resume Text:
     {resume_text}
     
+    OBJECTIVES:
+    1. **Extraction**: Capture all key details accurately.
+    2. **Professional Polish**: 
+       - Fix all capitalization errors (e.g., convert "python" to "Python", "aws" to "AWS").
+       - Ensure the "Summary" is written in a professional, third-person executive voice.
+       - Standardize date formats (e.g., "Jan 2023" or "2023").
+    3. **Structure**: Output strict JSON.
+
     OUTPUT STRICT JSON (No markdown code blocks, just the raw JSON):
     {{
         "contact": {{
-            "name": "Full Name",
+            "name": "Full Name (Title Case)",
             "email": "Email",
             "phone": "Phone",
             "location": "City, Country",
             "linkedin": "LinkedIn URL",
             "portfolio": "Portfolio URL"
         }},
-        "summary": "Professional Summary / Bio",
+        "summary": "Professional Summary (Polished & Impactful)",
         "experience": [
             {{
-                "title": "Job Title",
+                "title": "Job Title (Standardized)",
                 "company": "Company Name",
                 "dates": "Start - End Date",
                 "location": "Location",
-                "description": "<ul><li>Bullet point 1</li><li>Bullet point 2</li></ul>" 
+                "description": "<ul><li>Action-oriented bullet point 1.</li><li>Achievement-focused bullet point 2.</li></ul>" 
             }}
         ],
         "projects": [
             {{
                 "title": "Project Name",
-                "tech_stack": "Tech Stack Used",
-                "description": "<ul><li>Project detail 1</li><li>Project detail 2</li></ul>"
+                "tech_stack": "Tech Stack (Comma separated, Capitalized)",
+                "description": "<ul><li>Project detail 1.</li><li>Project detail 2.</li></ul>"
             }}
         ],
         "education": [
@@ -411,14 +422,14 @@ def get_resume_parsing_prompt(resume_text):
                 "dates": "Graduation Year"
             }}
         ],
-        "skills": "Skill 1, Skill 2, Skill 3 (Comma separated string)",
-        "certifications": "Cert 1\\nCert 2 (Newline separated string)",
-        "languages": "Lang 1, Lang 2 (Comma separated string)"
+        "skills": "Skill 1, Skill 2, Skill 3 (Comma separated, Capitalized)",
+        "certifications": "Cert 1\\nCert 2 (Newline separated)",
+        "languages": "Lang 1, Lang 2 (Comma separated)"
     }}
     
     Rules:
     1. If a field is missing, use an empty string "" or empty list [].
-    2. For 'description' fields, try to format bullet points as HTML <ul><li>...</li></ul> if possible, otherwise just plain text.
+    2. For 'description' fields, YOU MUST format bullet points as HTML <ul><li>...</li></ul>. Do not use plain text paragraphs.
     3. Ensure valid JSON.
     """
 
@@ -598,6 +609,26 @@ def get_linkedin_master_prompt(role, region, industry, resume_text, visual_conte
     """
     Returns the prompt to generate a JSON-based Master LinkedIn Optimization Kit.
     """
+    
+    # 1. Define Market Nuances
+    if "UAE" in region.upper() or "DUBAI" in region.upper():
+        market_instruction = """
+        **MARKET: UAE (Dubai/Abu Dhabi/GCC)**
+        - **Culture:** Hierarchical, formal, and prestige-driven.
+        - **Key Values:** Loyalty, International Experience, Stability.
+        - **Formatting:** Clean, professional, minimal formatting.
+        - **Tone:** "Executive Presence." Use British English spelling.
+        - **Critical:** Mention visa status or "Available to join immediately" if implied.
+        """
+    else:  # India or Global
+        market_instruction = """
+        **MARKET: INDIA / GLOBAL**
+        - **Culture:** Competitive, volume-driven, and skill-centric.
+        - **Key Values:** Scalability, Hustle, Tech Stack depth, Educational pedigree.
+        - **Tone:** Action-oriented. Use American or British English (consistent).
+        - **Critical:** Highlight rank/percentiles (e.g., "Top 5% performer").
+        """
+
     return f"""
     You are an elite LinkedIn Personal Branding Expert, Technical Recruiter, and SEO Algorithm Specialist. 
     Your goal is to generate a complete "Profile Optimization Kit" that helps the candidate rank #1 for their target role and converts views into recruiter messages.
@@ -605,74 +636,66 @@ def get_linkedin_master_prompt(role, region, industry, resume_text, visual_conte
     ### INPUT DATA
     - **Target Role:** {role}
     - **Target Location:** {region}
-    - **Industry Vibe:** {industry} (e.g. Corporate Finance, Tech Startup, Consulting)
-    - **Candidate's Current LinkedIn URL:** {linkedin_url}
-    - **Resume/Notes:** 
+    - **Target Industry:** {industry}
+    - **Visual Context:** "{visual_context}"
+    - **LinkedIn URL:** "{linkedin_url}"
+    - **Resume/Profile Content:**
     {resume_text}
-    - **Visuals:** {visual_context}
 
-    ### INSTRUCTIONS & CONSTRAINTS
-    1. **No Hallucinations:** Do NOT invent achievements. If metrics are missing in the resume, use placeholders like [Insert Metric].
-    2. **SEO First:** Analyze the Target Role to determine high-volume keywords before writing.
-    3. **Visual & URL Analysis:** specific checks for the profile link and visuals.
+    {market_instruction}
 
-    ---
+    ### SPECIAL INSTRUCTION FOR LINKEDIN PDF EXPORTS
+    If the Resume Content looks like a LinkedIn PDF export (contains "Page x of y", "Top Skills", "Certifications"):
+    1. **Extract Hidden Gems:** Look for the "Top Skills" section at the end. These are high-value keywords.
+    2. **Ignore Noise:** Ignore page numbers, "Contact", and footer links.
+    3. **Smart Rewrite:** Use the existing "Summary" as a baseline but rewrite it completely to match the Market Tone.
 
-    ### GENERATE THE FOLLOWING REPORT (JSON Format):
-
+    ### OUTPUT FORMAT (Strict JSON)
+    Return a single JSON object with this structure:
     {{
       "url_settings_audit": {{
+        "public_visibility": "Check if URL is clean (e.g. /in/name) or messy (/in/name-123a). Suggest fix.",
         "url_optimization": {{
-          "status": "Is it clean (e.g., linkedin.com/in/name-keyword) or messy?",
-          "fix": "If messy, provide the exact steps to clean it and suggest a URL format that includes the Target Role."
-        }},
-        "public_visibility": "Remind the candidate to check if their 'Public Profile Settings' allow their photo to be seen by 'Everyone'."
+          "status": "Good/Bad",
+          "fix": "Exact clean URL to claim."
+        }}
       }},
 
       "seo_strategy_audit": {{
-        "keyword_gap_analysis": [
-          "List 5 critical hard skills/keywords for the {{role}} in {{region}} that are missing or weak in the candidate's current resume."
-        ],
-        "primary_keyword_cluster": [
-          "Identify the top 3 terms that must be repeated in the Headline, About, and Experience sections for algorithm density."
-        ]
+        "primary_keyword_cluster": ["List 5 high-traffic keywords for {role} in {region}"],
+        "keyword_gap_analysis": ["List 5 keywords missing from the resume but critical for this role"],
+        "search_appearance_score": "Estimated score 0-100 based on keyword density"
       }},
 
       "text_optimization": {{
         "headline_options": [
-          "Option 1 (The Authority): Focus on seniority and leadership.",
-          "Option 2 (The Specialist): Focus on specific stack/niche.",
-          "Option 3 (The Results-Driven): Focus on the biggest achievement found in the resume."
+          "Option 1: The 'Authority' Formula (Role | Niche | Result)",
+          "Option 2: The 'Keyword' Formula (Role | Skill 1 | Skill 2 | Skill 3)",
+          "Option 3: The 'Value' Formula (Helping X do Y | Role)"
         ],
         "about_section": {{
-          "hook": "A 2-sentence opening based on their toughest solved problem or biggest career win.",
-          "body": "A summary of their technical journey using the 'STAR' method, naturally weaving in the 'Primary Keyword Cluster'.",
-          "toolkit": "A clean bulleted list of their Tech Stack.",
-          "call_to_action": "A professional closing inviting connections in {{region}}."
+          "hook": "First 2 lines to grab attention (visible before 'See More').",
+          "body": "The rest of the bio. Use bullet points for achievements. Tone: {region} style.",
+          "call_to_action": "Clear next step (e.g., 'DM for collaboration')."
         }},
         "experience_rewrites": {{
-          "instruction": "Rewrite the Most Recent Role from the resume.",
-          "role": "Most Recent Role Title",
-          "impact_statements": [
-            "Rewrite generic duties into 'Impact Statements' using [Strong Action Verb] + [Hard Skill/Tech] + [Result/Metric]."
-          ]
-        }},
-        "skills_endorsements": {{
-          "top_3_pinned": ["Skill 1", "Skill 2", "Skill 3"],
-          "long_tail_list": ["List 15 other skills ordered by search relevance."]
-        }},
-        "featured_section_strategy": "Based on the resume, suggest exactly what to pin."
+            "role": "Most recent/relevant role title",
+            "impact_statements": [
+                "Rewrite bullet 1 using Google XYZ formula (Accomplished X as measured by Y, by doing Z)",
+                "Rewrite bullet 2 focusing on ROI/Scale",
+                "Rewrite bullet 3 focusing on Leadership/Tech"
+            ]
+        }}
       }},
 
       "visual_audit": {{
         "profile_photo_check": {{
-          "first_impression": "What does this photo communicate psychologically?",
           "technical_score": "1-10",
           "sixty_percent_rule": "Does the face occupy 60% of the circle?",
           "fix": "One specific actionable tip to improve it."
         }},
         "banner_image_check": {{
-          "relevance": "Does the banner immediately signal '{{role}}'?",
+          "relevance": "Does the banner immediately signal '{role}'?",
           "safe_zone": "Is the text or key visual blocked by the profile picture on mobile screens?",
           "recommendation": "If the current banner is weak, describe exactly what image they should design/find to replace it."
         }}
@@ -705,5 +728,257 @@ def get_resume_agent_prompt(query, resume_context):
     - If the user asks to "Improve Score", provide a brief audit and 3 actionable tips.
     - If the user asks to "Target Resume", ask for the Job Description if not provided.
     - If the user asks to "Find Jobs", suggest 3 relevant job titles and a search query string.
-    - Keep responses concise and actionable.
+    """
+
+def get_tone_tuner_prompt(target_market, bio_text):
+    """
+    Returns the prompt for refining bio tone based on market.
+    """
+    return f"""
+    You are a Cross-Cultural Career Consultant. 
+    Review the "About Section" generated previously and refine the tone based on the target location.
+
+    INPUT:
+    - Target Market: {target_market} (India or UAE)
+    - Current Draft Bio: "{bio_text}"
+
+    INSTRUCTIONS:
+    1. IF INDIA: 
+       - Increase density of "Hard Skills" and "Certifications". 
+       - Highlight "Hustle," "Scaling," and "Volume" (e.g., 'Handled 1M users', 'Certified in X').
+       - Tone: Energetic, Technical, Ambitious.
+
+    2. IF UAE (Dubai/Abu Dhabi):
+       - Increase focus on "Business Value," "Reliability," and "Cross-Cultural Communication."
+       - Highlight "International Standards," "Cost Saving," and "Efficiency."
+       - Tone: Professional, Executive, Polished.
+
+    OUTPUT:
+    - The Revised "Culturally Tuned" About Section.
+    - A list of 3 specific changes you made and why they work for this region.
+    """
+
+def get_service_page_proposal_prompt(project_details, profile_data, target_role="Target Role", client_name="Client", tone="Direct and Authority-Driven"):
+    """
+    Generates a high-ticket Service Page Proposal using advanced sales psychology.
+    """
+    return f"""
+    Role: You are an elite Executive Career Consultant & Personal Branding Strategist. You specialize in converting "cold leads" from LinkedIn Service Pages into high-paying clients ($500+).
+    
+    Objective: Write a hyper-personalized, "Pattern-Interrupt" proposal that ignores the typical "I can help you" script and leverages acute pain-point analysis.
+
+    Input Data:
+    1. [CLIENT NAME]: {client_name}
+    2. [TARGET ROLE]: {target_role}
+    3. [PROJECT CONTEXT]: {project_details}
+    4. [PROFILE DATA (RAW)]: {profile_data}
+    5. [DESIRED TONE]: {tone}
+
+    Your Strategy (The "Gap Analysis" Method):
+    1.  **The Hook (0-3 Seconds):** Do NOT start with a greeting like "I hope you are well". Start immediately with an observation about their profile vs. their target role. 
+        *   Good: "{client_name}, I reviewed your profile and saw you're targeting {target_role} roles, but your headline doesn't position you as an expert."
+        *   Bad: "Hi! I am a resume writer..."
+    2.  **The Gap (The Pain):** Identify ONE specific "fatal flaw" in their current profile that is costing them interviews. (e.g., "Generic summary", "Duty-based bullets", "No metrics").
+    3.  **The Solution (The ROI):** Briefly mention your methodology (e.g., "ATS-compliant", "STAR Method", "Executive Branding").
+    4.  **The Call to Value (Not Action):** Do not ask for a call. Ask for permission to send value. "I have a 3-minute video audit of your profile. Can I send it over?"
+
+    Strict Rules:
+    -   Word Count: Under 120 words. (Busy executives don't read essays).
+    -   No Fluff: Remove words like "passionate", "dedicated", "help".
+    -   Formatting: Use short paragraphs (1-2 sentences max).
+
+    Output a JSON object with the following structure:
+    {{
+        "resume_audit": {{
+            "failure_1": "Specific critique of their current headline or summary...",
+            "failure_2": "Specific critique of their experience section or lack of metrics..."
+        }},
+        "before_after_analysis": {{
+            "current_state": "e.g., 'Generalist Manager' (Low Value)",
+            "future_state": "e.g., 'Strategic {target_role} Leader' (High Value)"
+        }},
+        "proposal_script": "The complete, ready-to-send proposal text..."
+    }}
+    """
+
+def get_content_improver_prompt(text, target_role="Professional"):
+    """
+    Returns the prompt to rewrite resume content for impact.
+    """
+    return f"""
+    Act as a Professional Resume Writer.
+    Rewrite the following text to be more impactful, concise, and result-oriented.
+    
+    Target Role/Context: {target_role}
+    Original Text:
+    "{text}"
+    
+    Instructions:
+    1. Use strong action verbs.
+    2. Quantify results where possible.
+    3. Remove fluff and buzzwords.
+    4. Keep it professional and concise.
+    """
+
+def get_master_prompt(target_market, target_job, profile_text):
+    
+    # 1. Define Market Nuances
+    if target_market == "UAE":
+        market_instruction = """
+        **MARKET: UAE (Dubai/Abu Dhabi/GCC)**
+        - **Culture:** Hierarchical, formal, and prestige-driven.
+        - **Key Values:** Loyalty, International Experience, Stability.
+        - **Formatting:** Clean, professional, minimal formatting.
+        - **Tone:** "Executive Presence." Use British English spelling.
+        - **Critical:** Mention visa status or "Available to join immediately" if implied.
+        """
+    else:  # India or others, default to India style for now as per request logic, or generic if needed. 
+           # The user request specifically had 'else: # India' logic.
+        market_instruction = """
+        **MARKET: INDIA**
+        - **Culture:** Competitive, volume-driven, and skill-centric.
+        - **Key Values:** Scalability, Hustle, Tech Stack depth, Educational pedigree.
+        - **Tone:** Action-oriented. Use American or British English (consistent).
+        - **Critical:** Highlight rank/percentiles (e.g., "Top 5% performer").
+        """
+
+    # 2. Construct the Prompt
+    prompt = f"""
+    **ROLE:** Expert CV Writer & LinkedIn Strategist for {target_market}.
+    
+    **OBJECTIVE:** Rewrite the user's LinkedIn profile to bypass ATS filters and impress human recruiters for the role of: {target_job}.
+    
+    {market_instruction}
+    
+    **STRICT NEGATIVE CONSTRAINTS (DO NOT IGNORE):**
+    - NO AI buzzwords: "Delve," "Tapestry," "Unleash," "Elevate," "Synergy."
+    - NO passive voice.
+    - NO flowery introductions like "In the dynamic world of..."
+    
+    **INPUT DATA:**
+    {profile_text}
+    
+    **SPECIAL INSTRUCTION FOR LINKEDIN PDF EXPORTS:**
+    If the input data looks like a LinkedIn PDF export (contains "Page x of y", "Top Skills", "Certifications" sections):
+    1. **Extract Hidden Gems:** Look for the "Top Skills" section at the end of the PDF. These are often high-value keywords.
+    2. **Ignore Formatting Noise:** Ignore page numbers, "Contact", and "www.linkedin.com" footers.
+    3. **Use Summary as Base:** If a "Summary" section exists, use it as the baseline for the new "About Section" but rewrite it completely.
+    
+    **REQUIRED OUTPUT FORMAT (Markdown):**
+    
+    ### 1. Headline (Strictly <220 chars)
+    [Formula: Role | Key Hard Skill | Unique Value | Metric]
+    *(Example: Sales Director | B2B SaaS | Scaling Revenue 0 to $10M | Market Expansion)*
+    
+    ### 2. About Section (First Person, <2600 chars)
+    - **Hook:** 2 sentences stating exactly what you solve.
+    - **Body:** 3-4 bullet points of "Signature Achievements" with bolded metrics.
+    - **Closing:** Call to Action (e.g., "Open to discussions regarding...").
+    
+    ### 3. Experience Refinement (Top 3 Roles)
+    - Rewrite the most recent roles using the "Google XYZ Formula": "Accomplished [X] as measured by [Y], by doing [Z]."
+    
+    ### 4. Skills Strategy
+    - List 5 "Hard Skills" to pin to the top of the profile.
+    - List 5 "Soft Skills" validated by the market culture.
+    
+    ### 5. "Cold Message" Draft (Bonus)
+    - Draft a 300-character connection request message tailored to a recruiter in {target_market}.
+      (UAE: Polite & Formal | India: Direct & Value-led)
+    """
+    return prompt
+
+
+
+def get_keyword_matcher_prompt(resume_text, jd_text):
+    """
+    Returns the prompt to compare resume against JD keywords.
+    """
+    return f"""
+    Act as an ATS (Applicant Tracking System) Algorithm.
+    Compare the Resume against the Job Description to find keyword gaps.
+    
+    Resume Text:
+    {resume_text}
+    
+    Job Description:
+    {jd_text}
+    
+    Output a JSON object:
+    {{
+        "match_score": "0-100 (Integer)",
+        "missing_keywords": ["Keyword 1", "Keyword 2", "Keyword 3"],
+        "matching_keywords": ["Keyword A", "Keyword B"]
+    }}
+    """
+
+def get_logistics_prompt(market, notice_period, visa_status, location):
+    """
+    Returns the prompt for generating a strategic availability note.
+    """
+    return f"""
+    Act as a Career Strategist.
+    Generate a concise "Logistics Strategy Note" for a candidate's resume or cover letter.
+    
+    Context:
+    - Target Market: {market}
+    - Notice Period: {notice_period}
+    - Visa Status: {visa_status}
+    - Current Location: {location}
+    
+    INSTRUCTIONS:
+    1. If Notice Period is "Immediate", highlight it as a competitive advantage.
+    2. If Market is "UAE" and candidate is in "India", address the relocation/visa aspect professionally (e.g., "Ready to relocate at own expense").
+    3. If Market is "India", focus on "Serving Notice" or "Buyout Options".
+    4. If UAE + Golden Visa: Write "Golden Visa Holder (No Sponsorship Needed)."
+    
+    GENERATE:
+    1. A 1-sentence "Logistics Tagline" for the Headline.
+    2. A professional 2-sentence explanation for the bottom of the About section.
+    """
+
+
+def get_linkedin_banner_content_extraction_prompt(linkedin_text, target_role):
+    """
+    Extracts custom hook, tagline, and LinkedIn URL from LinkedIn profile text for banner generation.
+    """
+    return f"""
+    You are a LinkedIn Personal Branding Expert. Analyze the following LinkedIn profile content and extract/generate compelling banner content.
+    
+    LinkedIn Profile Content:
+    {linkedin_text}
+    
+    Target Role: {target_role}
+    
+    Your task is to:
+    1. Extract the LinkedIn profile URL if present
+    2. Generate an attractive, attention-grabbing HOOK (main headline) for a LinkedIn banner
+    3. Generate a compelling TAGLINE (subheadline) that supports the hook
+    
+    HOOK Guidelines:
+    - Should be 3-8 words maximum
+    - Must be action-oriented and value-driven
+    - Should immediately communicate the professional's unique value
+    - Examples: "Transforming Data Into Business Growth", "Building Scalable Cloud Solutions", "Leading Digital Transformation"
+    
+    TAGLINE Guidelines:
+    - Should be 8-15 words maximum
+    - Expands on the hook with specific skills or achievements
+    - Should include measurable impact if possible
+    - Examples: "Helping Fortune 500 Companies Scale with AWS & Kubernetes", "10+ Years Driving Revenue Through AI/ML Solutions"
+    
+    Output strictly in JSON format:
+    {{
+        "linkedin_url": "Extract the LinkedIn URL (e.g., linkedin.com/in/username) or empty string if not found",
+        "custom_hook": "Generated attention-grabbing hook based on profile",
+        "custom_tagline": "Generated compelling tagline based on profile and achievements"
+    }}
+    
+    IMPORTANT: Base the hook and tagline on the actual profile content. Look for:
+    - Current headline
+    - About section
+    - Key achievements
+    - Core skills
+    - Years of experience
+    - Industry focus
     """

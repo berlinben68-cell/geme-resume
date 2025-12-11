@@ -21,8 +21,11 @@ from .prompts import (
     get_resume_parsing_prompt, get_cover_letter_prompt,
     get_linkedin_profile_kit_prompt, get_linkedin_seo_prompt,
     get_linkedin_visual_prompt, get_linkedin_master_prompt,
-    get_resume_agent_prompt
+    get_resume_agent_prompt, get_logistics_prompt, get_tone_tuner_prompt,
+    get_service_page_proposal_prompt, get_content_improver_prompt,
+    get_keyword_matcher_prompt, get_master_prompt
 )
+
 
 class IntelligenceEngine:
     def __init__(self, api_key):
@@ -258,11 +261,22 @@ class IntelligenceEngine:
         raw_text = self.generate_content(prompt)
         
         data = self._extract_json(raw_text)
+        
+        # Regex Fallback for LinkedIn URL
+        import re
+        linkedin_pattern = r'(https?://)?(www\.)?linkedin\.com/in/[a-zA-Z0-9_-]+/?'
+        match = re.search(linkedin_pattern, resume_text)
+        extracted_url = match.group(0) if match else ""
+        
         if data:
+            # If AI missed it but regex found it, use regex
+            if not data.get('linkedin_url') and extracted_url:
+                data['linkedin_url'] = extracted_url
             return data
         else:
             print(f"Error parsing role/stack from: {raw_text}")
-            return {"role": "", "stack": ""}
+            # Return regex result even if AI failed JSON
+            return {"role": "", "stack": "", "linkedin_url": extracted_url, "location": "", "industry": "Technology"}
 
     def optimize_naukri_profile(self, resume_text, target_role):
         """
@@ -360,10 +374,16 @@ class IntelligenceEngine:
             print(f"Error parsing Visual Audit JSON from: {raw_text}")
             return None
 
-    def generate_linkedin_master_kit(self, role, region, industry, resume_text, visual_context, linkedin_url):
+    def generate_linkedin_master_kit(self, role, region, industry, resume_text, visual_context=None, linkedin_url=None):
         """
         Generates a JSON-based Master LinkedIn Optimization Kit.
         """
+        # Handle optional inputs
+        if not visual_context:
+            visual_context = "No visual context provided. Skip visual audit or provide generic advice."
+        if not linkedin_url:
+            linkedin_url = "Not provided"
+
         prompt = get_linkedin_master_prompt(role, region, industry, resume_text, visual_context, linkedin_url)
         raw_text = self.generate_content(prompt)
         
@@ -374,12 +394,149 @@ class IntelligenceEngine:
             print(f"Error parsing Master Kit JSON from: {raw_text}")
             return None
 
+    def extract_banner_content(self, linkedin_text, target_role):
+        """
+        Extracts custom hook, tagline, and LinkedIn URL from LinkedIn profile text for banner generation.
+        """
+        from .prompts import get_linkedin_banner_content_extraction_prompt
+        
+        prompt = get_linkedin_banner_content_extraction_prompt(linkedin_text, target_role)
+        raw_text = self.generate_content(prompt)
+        
+        data = self._extract_json(raw_text)
+        if data:
+            return data
+        else:
+            print(f"Error parsing Banner Content from: {raw_text}")
+            return {"linkedin_url": "", "custom_hook": "", "custom_tagline": ""}
+
     def chat_with_resume_agent(self, query, resume_context):
         """
         Interacts with the AI Resume Agent.
         """
         prompt = get_resume_agent_prompt(query, resume_context)
         return self.generate_content(prompt)
+
+    def generate_logistics_strategy(self, market, notice_period, visa_status, location):
+        """
+        Generates a strategic availability note.
+        """
+        prompt = get_logistics_prompt(market, notice_period, visa_status, location)
+        return self.generate_content(prompt)
+
+    def tune_bio_tone(self, target_market, bio_text):
+        """
+        Refines the bio tone based on target market.
+        """
+        prompt = get_tone_tuner_prompt(target_market, bio_text)
+        return self.generate_content(prompt)
+
+    def fetch_linkedin_photo(self, linkedin_url):
+        """
+        Fetches the profile photo from a LinkedIn URL using Open Graph tags.
+        """
+        try:
+            import requests
+            from bs4 import BeautifulSoup
+            
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1',
+                'Sec-Fetch-Dest': 'document',
+                'Sec-Fetch-Mode': 'navigate',
+                'Sec-Fetch-Site': 'none',
+                'Sec-Fetch-User': '?1',
+                'Cache-Control': 'max-age=0'
+            }
+            response = requests.get(linkedin_url, headers=headers, timeout=10)
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.text, 'html.parser')
+                og_image = soup.find('meta', property='og:image')
+                if og_image and og_image.get('content'):
+                    return og_image['content']
+            return None
+            return None
+        except Exception as e:
+            print(f"Error fetching LinkedIn photo: {e}")
+            return None
+
+    def fetch_linkedin_data(self, linkedin_url):
+        """
+        Fetches public metadata (Title, Description) from a LinkedIn URL.
+        """
+        try:
+            import requests
+            from bs4 import BeautifulSoup
+            
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9',
+            }
+            print(f"Attempting to fetch URL with Mobile UA: {linkedin_url}")
+            response = requests.get(linkedin_url, headers=headers, timeout=10)
+            print(f"Fetch Status Code: {response.status_code}")
+            
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.text, 'html.parser')
+                
+                title = soup.find('meta', property='og:title')
+                desc = soup.find('meta', property='og:description')
+                
+                title_text = title['content'] if title else "Unknown Title"
+                desc_text = desc['content'] if desc else "Unknown Description"
+                
+                return f"Headline: {title_text}\nAbout/Summary: {desc_text}"
+            else:
+                print(f"Failed to fetch. Status: {response.status_code}")
+                return None
+            return None
+        except Exception as e:
+            print(f"Error fetching LinkedIn data: {e}")
+            return None
+
+    def generate_service_page_proposal(self, project_details, profile_data):
+        """
+        Generates a Service Page Proposal.
+        """
+        prompt = get_service_page_proposal_prompt(project_details, profile_data)
+        raw_text = self.generate_content(prompt)
+        
+        data = self._extract_json(raw_text)
+        if data:
+            return data
+        else:
+            print(f"Error parsing Service Page Proposal JSON from: {raw_text}")
+            return None
+
+    def improve_content(self, text, target_role="Professional"):
+        """
+        Rewrites text for better impact.
+        """
+        prompt = get_content_improver_prompt(text, target_role)
+        return self.generate_content(prompt)
+
+    def match_keywords(self, resume_text, jd_text):
+        """
+        Compares resume against JD for keywords.
+        """
+        prompt = get_keyword_matcher_prompt(resume_text, jd_text)
+        raw_text = self.generate_content(prompt)
+        return self._extract_json(raw_text)
+
+    def generate_master_optimization(self, target_market, target_job, profile_text):
+        """
+        Generates the Master LinkedIn Optimization using the new market-specific prompt.
+        """
+        prompt = get_master_prompt(target_market, target_job, profile_text)
+        return self.generate_content(prompt)
+
+
+
 
 
 

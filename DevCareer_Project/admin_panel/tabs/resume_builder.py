@@ -19,46 +19,41 @@ def render_resume_builder(engine):
     
     data = st.session_state['resume_data']
 
-    # --- AI Resume Agent ---
-    with st.expander("🤖 AI Resume Agent", expanded=True):
-        st.info("How can I help with your resume and job search?")
+    # --- AI Resume Assistant (Enhanced) ---
+    with st.expander("🤖 AI Resume Assistant", expanded=True):
+        st.info("Tailor your resume to a specific job description.")
         
-        col_agent_btns = st.columns(3)
-        if col_agent_btns[0].button("✨ IMPROVE MY SCORE"):
-            st.session_state.agent_query = "Improve my resume score and give me tips."
-        if col_agent_btns[1].button("🎯 TARGET MY RESUME"):
-            st.session_state.agent_query = "Help me target my resume for a specific job."
-        if col_agent_btns[2].button("🔍 FIND JOBS"):
-            st.session_state.agent_query = "Suggest job titles and search strategies for me."
-
-        # Chat History
-        if "agent_messages" not in st.session_state:
-            st.session_state.agent_messages = []
-
-        for message in st.session_state.agent_messages:
-            with st.chat_message(message["role"]):
-                st.markdown(message["content"])
-
-        # Chat Input Handling
-        prompt = st.chat_input("Describe your task or question...")
+        col_jd1, col_jd2 = st.columns([2, 1])
+        with col_jd1:
+            target_jd = st.text_area("Paste Target Job Description", height=150, placeholder="Paste the JD here to get keyword recommendations...", key="rb_target_jd")
         
-        # Handle Button Clicks
-        if st.session_state.get("agent_query"):
-            prompt = st.session_state.agent_query
-            st.session_state.agent_query = None # Reset
+        with col_jd2:
+            st.markdown("### Match Score")
+            if target_jd:
+                if st.button("Analyze Match"):
+                    # Construct resume text for analysis
+                    resume_text = f"{data.get('summary', '')} {data.get('skills', '')}"
+                    for exp in data.get('experience', []):
+                        resume_text += f" {exp.get('title', '')} {exp.get('description', '')}"
+                    
+                    with st.spinner("Analyzing keywords..."):
+                        match_data = engine.match_keywords(resume_text, target_jd)
+                        if match_data:
+                            st.session_state['rb_match_data'] = match_data
+            
+            if 'rb_match_data' in st.session_state:
+                md = st.session_state['rb_match_data']
+                score = int(md.get('match_score', 0))
+                st.metric("ATS Score", f"{score}/100")
+                if score < 70:
+                    st.warning("Low Match")
+                else:
+                    st.success("Good Match!")
         
-        if prompt:
-            st.session_state.agent_messages.append({"role": "user", "content": prompt})
-            with st.chat_message("user"):
-                st.markdown(prompt)
-
-            with st.chat_message("assistant"):
-                with st.spinner("Thinking..."):
-                    # Construct context from resume data
-                    resume_context = str(st.session_state.get('resume_data', {}))
-                    response = engine.chat_with_resume_agent(prompt, resume_context)
-                    st.markdown(response)
-            st.session_state.agent_messages.append({"role": "assistant", "content": response})
+        if 'rb_match_data' in st.session_state:
+            md = st.session_state['rb_match_data']
+            st.markdown("**Missing Keywords:**")
+            st.write(", ".join(md.get('missing_keywords', [])))
 
     st.divider()
 
@@ -174,15 +169,25 @@ def render_resume_builder(engine):
                             st.rerun()
             st.divider()
 
-        # --- Import Resume Feature ---
-        with st.expander("📤 Import Resume (PDF/DOCX)", expanded=False):
-            st.info("Upload your existing resume to auto-fill the builder.")
-            uploaded_resume = st.file_uploader("Upload Resume", type=["pdf", "docx"], key="builder_import")
+        # --- Executive Resume Converter ---
+        with st.expander("💼 Executive Resume Converter", expanded=False):
+            st.markdown("### Transform your profile into a Board-Ready Resume")
+            st.info("Upload your LinkedIn PDF or current resume. Our AI will extract, polish, and reformat it into a premium design.")
+            
+            col_import1, col_import2 = st.columns([2, 1])
+            with col_import1:
+                uploaded_resume = st.file_uploader("Upload Resume / LinkedIn PDF", type=["pdf", "docx"], key="builder_import")
+            
+            with col_import2:
+                st.write("") # Spacer
+                st.write("") # Spacer
+                auto_theme = st.checkbox("Auto-Apply Premium Theme", value=True, help="Automatically selects a stunning design for you.")
+                auto_polish = st.checkbox("✨ AI Content Polish", value=True, help="Fixes typos, improves tone, and standardizes formatting.")
             
             if uploaded_resume is not None:
-                if st.button("Import Data"):
+                if st.button("✨ Transform & Upgrade", type="primary"):
                     from utils.file_processor import extract_text_from_file
-                    with st.spinner("Extracting data..."):
+                    with st.spinner("Analyzing & Polishing Content..."):
                         text = extract_text_from_file(uploaded_resume.getvalue(), uploaded_resume.type)
                         if text.startswith("Error"):
                             st.error(text)
@@ -190,7 +195,21 @@ def render_resume_builder(engine):
                             parsed_data = engine.parse_resume_json(text)
                             if parsed_data:
                                 st.session_state['resume_data'] = parsed_data
-                                st.success("Resume Imported Successfully!")
+                                
+                                # Auto-Apply Theme Logic
+                                if auto_theme:
+                                    import random
+                                    all_templates = get_all_templates()
+                                    # Prefer "Modern" or "Tech" templates for the "Wow" factor
+                                    premium_templates = [t for t in all_templates if t['category'] in ['Professional', 'Tech', 'Creative']]
+                                    if premium_templates:
+                                        selected_tmpl = random.choice(premium_templates)
+                                        st.session_state['design_color'] = selected_tmpl['config']['color']
+                                        st.session_state['design_font'] = selected_tmpl['config']['font']
+                                        st.session_state['design_layout'] = selected_tmpl['config']['layout']
+                                        st.toast(f"Applied Theme: {selected_tmpl['name']}")
+                                
+                                st.success("Resume Converted Successfully!")
                                 st.rerun()
                             else:
                                 st.error("Failed to parse resume data.")
@@ -273,7 +292,16 @@ def render_resume_builder(engine):
 
         # 2. Professional Summary (New)
         with st.expander("📝 Professional Summary"):
-            data['summary'] = st.text_area("Bio / Summary", data.get('summary', ''), height=100)
+            col_sum1, col_sum2 = st.columns([3, 1])
+            with col_sum1:
+                data['summary'] = st.text_area("Bio / Summary", data.get('summary', ''), height=100)
+            with col_sum2:
+                if st.button("✨ Rewrite", key="rewrite_summary"):
+                    if data.get('summary'):
+                        with st.spinner("Improving..."):
+                            improved = engine.improve_content(data['summary'])
+                            data['summary'] = improved
+                            st.rerun()
 
         # 3. Experience
         with st.expander("💼 Experience"):
@@ -288,10 +316,19 @@ def render_resume_builder(engine):
                 exp['location'] = st.text_input(f"Location #{i+1}", exp.get('location', ''))
                 
                 # AI Bullet Generator
-                if st.button(f"✨ Generate Bullets for Job {i+1}"):
-                    with st.spinner("Generating metrics..."):
-                        bullets = engine.generate_bullets(exp['title'], exp['company'], "General software engineering tasks")
-                        exp['description'] = bullets
+                col_exp_btn1, col_exp_btn2 = st.columns(2)
+                with col_exp_btn1:
+                    if st.button(f"✨ Generate Bullets", key=f"gen_bullets_{i}"):
+                        with st.spinner("Generating metrics..."):
+                            bullets = engine.generate_bullets(exp['title'], exp['company'], "General software engineering tasks")
+                            exp['description'] = bullets
+                with col_exp_btn2:
+                    if st.button(f"✨ Improve Text", key=f"improve_exp_{i}"):
+                        if exp.get('description'):
+                            with st.spinner("Polishing..."):
+                                improved = engine.improve_content(exp['description'])
+                                exp['description'] = improved
+                                st.rerun()
                 
                 exp['description'] = st_quill(value=exp.get('description', ''), html=True, key=f"quill_exp_{i}")
                 st.divider()

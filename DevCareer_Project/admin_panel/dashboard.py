@@ -14,6 +14,8 @@ import core_engine.ai_logic
 importlib.reload(core_engine.ai_logic)
 from core_engine.ai_logic import IntelligenceEngine
 from streamlit_quill import st_quill
+import file_factory.doc_builder
+importlib.reload(file_factory.doc_builder)
 from file_factory.doc_builder import create_resume_docx, generate_html_preview, create_resume_docx_from_html
 from file_factory.repo_bundler import create_project_bundle
 from admin_panel.tabs.resume_builder import render_resume_builder
@@ -21,6 +23,9 @@ from admin_panel.tabs.naukri_optimizer import render_naukri_optimizer
 from admin_panel.tabs.ats_scanner import render_ats_scanner
 from admin_panel.tabs.job_search import render_job_search
 from admin_panel.tabs.cover_letter import render_cover_letter_builder
+from admin_panel.tabs.global_mobility import render_global_mobility_tab
+from admin_panel.tabs.interview_prep import render_interview_prep_tab
+from admin_panel.tabs.github_tools import render_github_tools_tab
 from utils.file_processor import extract_text_from_file
 
 st.set_page_config(page_title="DevCareer OS", layout="wide")
@@ -48,14 +53,18 @@ def get_engine(api_key):
 engine = get_engine(api_key)
 
 # Tabs for different modules
-tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10, tab11 = st.tabs([
     "📄 Resume Builder", 
     "✉️ Cover Letter", 
     "🏗️ GitHub Architect", 
     "🔗 LinkedIn Optimizer", 
+    "🤝 Service Proposal",
     "🇮🇳 Naukri Optimizer", 
     "📊 ATS Scanner",
-    "💼 Job Search"
+    "💼 Job Search",
+    "🌍 Global Mobility",
+    "🎤 Interview Prep",
+    "🕰️ Legacy Migrator"
 ])
 
 # --- Tab 1: Resume Builder ---
@@ -65,353 +74,265 @@ with tab1:
 with tab2:
     render_cover_letter_builder(engine)
 
-# --- Tab 5: Naukri Optimizer ---
+# --- Tab 5: Service Proposal ---
 with tab5:
+    st.header("Service Page Proposal Generator 🤝")
+    st.info("Convert LinkedIn Service Page leads into paying clients with high-converting proposals.")
+    
+    # New Structured Inputs
+    col_sp1, col_sp2 = st.columns(2)
+    with col_sp1:
+        sp_resume_type = st.selectbox("What type of resume?", ["Traditional resume", "Visual resume", "Infographic resume", "Federal resume", "Academic CV"])
+        sp_writing_stage = st.selectbox("What stage of resume writing are you in?", ["I need revisions to an existing resume", "I need a resume from scratch", "I need a review/critique only"])
+    
+    with col_sp2:
+        sp_career_stage = st.selectbox("Where are you in your career?", ["Early career (0-2 yrs)", "Mid career (3-10 yrs)", "Late career (10-20 yrs)", "Executive (20+ yrs)"])
+        sp_industry = st.selectbox("Which industries are you focused on?", ["Technology", "Finance", "Consulting", "Healthcare", "Retail", "Manufacturing", "Other"])
+
+    # Construct the project details string for the AI
+    sp_project = f"""
+    Project Details:
+    - Type: {sp_resume_type}
+    - Stage: {sp_writing_stage}
+    - Career Level: {sp_career_stage}
+    - Industry: {sp_industry}
+    """
+    
+    # Input: PDF Upload or Text
+    sp_pdf = st.file_uploader("Upload Client Profile (PDF) - e.g. LinkedIn Export", type=["pdf"], key="sp_pdf")
+    
+    sp_profile_final = ""
+    
+    # If PDF is NOT uploaded, show text area
+    if not sp_pdf:
+        sp_text_manual = st.text_area("Or Paste Profile Text", placeholder="e.g. Headline, About Section, Experience...", height=150)
+        sp_profile_final = sp_text_manual
+
+    if st.button("Generate Proposal"):
+        # If PDF is uploaded, parse it now
+        if sp_pdf:
+            with st.spinner("Reading PDF..."):
+                sp_profile_final = engine.parse_pdf(sp_pdf)
+        
+        # DEBUG
+        print(f"DEBUG: Project Details: '{sp_project}'")
+        print(f"DEBUG: Profile Final Length: {len(sp_profile_final)}")
+        
+        if sp_project and sp_profile_final:
+            with st.spinner("Analyzing Profile & Generating Proposal..."):
+                proposal_data = engine.generate_service_page_proposal(sp_project, sp_profile_final)
+                
+                if proposal_data and 'error' not in proposal_data:
+                    st.success("Proposal Generated!")
+                    
+                    # Part 1: Internal Audit
+                    with st.expander("🕵️ Internal Profile Audit (For Your Eyes Only)", expanded=True):
+                        audit = proposal_data.get('resume_audit', {})
+                        st.error(f"**Failure 1:** {audit.get('failure_1', '')}")
+                        st.error(f"**Failure 2:** {audit.get('failure_2', '')}")
+                        
+                        # Before vs After
+                        st.markdown("---")
+                        st.markdown("### 🔄 Before vs After Transformation")
+                        ba = proposal_data.get('before_after_analysis', {})
+                        col_ba1, col_ba2 = st.columns(2)
+                        with col_ba1:
+                            st.warning(f"**Current State:**\n{ba.get('current_state', 'Generic Profile')}")
+                        with col_ba2:
+                            st.success(f"**Future State:**\n{ba.get('future_state', 'High-Converting Brand')}")
+                    
+                    # Part 2: Proposal Script
+                    st.subheader("📋 Copy-Paste Proposal Script")
+                    st.code(proposal_data.get('proposal_script', ''), language="text")
+                elif proposal_data and 'error' in proposal_data:
+                    st.error(proposal_data['error'])
+                else:
+                    st.error("Failed to generate proposal. Please try again.")
+        else:
+            st.error("Please provide Project Details and either Upload a PDF or Paste Text.")
+
+# --- Tab 6: Naukri Optimizer ---
+with tab6:
     render_naukri_optimizer(engine)
 
 # --- Tab 4: LinkedIn Optimizer ---
 with tab4:
-    st.header("LinkedIn Optimizer")
-    col1, col2 = st.columns(2)
+    st.header("LinkedIn Optimizer 🚀")
+    st.caption("Transform your profile into a Recruiter Magnet in 4 simple steps.")
     
-    with col1:
-        li_resume_file = st.file_uploader("Upload Resume (PDF/DOCX)", type=["pdf", "docx"], key="li_resume_uploader")
-        li_resume_text = ""
+    # Initialize Session State for Wizard Data
+    if 'li_wizard_step' not in st.session_state:
+        st.session_state['li_wizard_step'] = 1
+    
+    # --- Step 1: Upload & Analyze ---
+    st.subheader("Step 1: Upload Your Profile")
+    with st.expander("📂 Upload Resume or LinkedIn PDF", expanded=True):
+        li_resume_file = st.file_uploader("Upload Resume / LinkedIn PDF (PDF/DOCX)", type=["pdf", "docx"], key="li_resume_uploader_wizard")
+        st.caption("💡 Tip: You can upload your 'Save to PDF' profile export from LinkedIn.")
         
+        li_resume_text = ""
         if li_resume_file is not None:
-            # Use cached extraction
             li_resume_text = extract_text_from_file(li_resume_file.getvalue(), li_resume_file.type)
-            
             if li_resume_text.startswith("Error"):
                 st.error(li_resume_text)
             else:
-                st.success("Resume Loaded from File!")
-                
-                # Auto-Extract Role & Stack if not already set or if new file
-                if 'extracted_file' not in st.session_state or st.session_state.get('extracted_file') != li_resume_file.name:
-                    with st.spinner("Auto-detecting Role & Tech Stack..."):
+                st.success("✅ File Analyzed Successfully")
+                # Auto-Extract Logic
+                if 'extracted_file_wizard' not in st.session_state or st.session_state.get('extracted_file_wizard') != li_resume_file.name:
+                    with st.spinner("🕵️ Auto-detecting Role & Location..."):
                         extracted = engine.extract_role_and_stack(li_resume_text)
-                        # Update the widget keys directly
-                        st.session_state['li_role'] = extracted.get('role', '')
-                        st.session_state['li_stack'] = extracted.get('stack', '')
-                        st.session_state['li_resume_input'] = li_resume_text # Update text area
-                        st.session_state['extracted_file'] = li_resume_file.name
-                        st.rerun() # Rerun to update inputs
-    
-        li_resume = st.text_area("Resume Content", height=300, key="li_resume_input")
-    
-    with col2:
-        li_role = st.text_input("Target Role", placeholder="e.g. Senior Java Developer", key="li_role")
-        li_stack = st.text_input("Tech Stack Focus", placeholder="e.g. Spring Boot, AWS, Kafka", key="li_stack")
-        st.info("This tool generates a 'Recruiter SEO' kit to help you rank in top search results.")
-    
-    if st.button("Generate Optimization Kit"):
-        if li_resume and li_role:
-            with st.spinner("Analyzing Algorithm & Generating Kit..."):
-                li_content = engine.optimize_linkedin(li_resume, li_role, li_stack)
-                st.markdown(li_content)
-                
-                st.download_button(
-                    label="Download Optimization Kit (TXT)",
-                    data=li_content,
-                    file_name="LinkedIn_Optimization_Kit.txt",
-                    mime="text/plain"
-                )
-        else:
-            st.error("Please upload a Resume and provide a Target Role.")
-
-    st.divider()
-
-    # --- Feature: JSON Profile Kit (New) ---
-    st.subheader("🚀 Advanced Profile Kit (JSON)")
-    st.info("Generate a structured, SEO-optimized profile kit including headlines, about section, and skill strategy.")
-    
-    li_region = st.text_input("Target Region", placeholder="e.g. Dubai, Bangalore, London", key="li_region")
-    
-    if st.button("Generate Profile Kit (JSON)"):
-        if li_resume and li_role and li_region:
-            with st.spinner("Generating Profile Kit..."):
-                kit_data = engine.generate_linkedin_profile_kit(li_role, li_region, li_resume)
-                
-                if kit_data:
-                    st.success("Profile Kit Generated!")
-                    
-                    # Display Headlines
-                    st.markdown("### 1. Headlines")
-                    for h in kit_data.get('headlines', []):
-                        st.write(f"- {h}")
+                        # Update Widget Keys Directly to Force UI Refresh
+                        st.session_state['li_role_input'] = extracted.get('role', '')
+                        st.session_state['li_stack_input'] = extracted.get('stack', '')
+                        st.session_state['li_url_input'] = extracted.get('linkedin_url', '')
                         
-                    # Display About Section
-                    st.markdown("### 2. About Section")
-                    about = kit_data.get('about_section', {})
-                    st.markdown(f"**Hook:** {about.get('hook', '')}")
-                    st.markdown(f"**Body:** {about.get('body', '')}")
-                    st.markdown(f"**Stack:** {about.get('tech_stack_list', '')}")
-                    st.markdown(f"**CTA:** {about.get('call_to_action', '')}")
-                    
-                    # Display Tips
-                    st.markdown("### 3. Optimization Tips")
-                    for tip in kit_data.get('experience_optimization_tips', []):
-                        st.write(f"- {tip}")
+                        # Update Industry Select
+                        detected_ind = extracted.get('industry', 'Technology')
+                        options = ["Technology", "Finance", "Consulting", "Healthcare", "Retail", "Other"]
+                        if detected_ind in options:
+                            st.session_state['li_industry_select'] = detected_ind
+                        else:
+                             st.session_state['li_industry_select'] = "Other"
+
+                        loc = extracted.get('location', '')
+                        if loc:
+                            if "UAE" in loc.upper() or "DUBAI" in loc.upper():
+                                st.session_state['li_market_select'] = "UAE"
+                            elif "INDIA" in loc.upper() or "BANGALORE" in loc.upper():
+                                st.session_state['li_market_select'] = "India"
+                            st.session_state['li_region_input'] = loc
                         
-                    # Display Skills
-                    st.markdown("### 4. SEO Skills")
-                    st.write(", ".join(kit_data.get('skills_seo', [])))
-                    
-                    # Display Featured Strategy
-                    st.markdown("### 5. Featured Strategy")
-                    st.write(kit_data.get('featured_section_strategy', ''))
-                    
-                    # Download JSON
-                    import json
-                    st.download_button(
-                        label="Download Profile Kit (JSON)",
-                        data=json.dumps(kit_data, indent=2),
-                        file_name="LinkedIn_Profile_Kit.json",
-                        mime="application/json"
-                    )
-                else:
-                    st.error("Failed to generate Profile Kit. Please try again.")
-        else:
-            st.error("Please provide Target Role, Region, and Upload Resume.")
-
-    st.divider()
-
-    # --- Feature: SEO Audit (New) ---
-    st.subheader("🔍 LinkedIn SEO Audit & Ranking")
-    st.info("Analyze your profile against the 'LinkedIn Recruiter' search algorithm.")
-    
-    if st.button("Run SEO Audit"):
-        if li_resume and li_role and li_region:
-            with st.spinner("Auditing Profile SEO..."):
-                seo_data = engine.generate_linkedin_seo_audit(li_role, li_region, li_resume)
-                
-                if seo_data:
-                    st.success("SEO Audit Complete!")
-                    
-                    # 1. SEO Audit
-                    audit = seo_data.get('seo_audit', {})
-                    st.markdown("### 1. Keyword Gap Analysis")
-                    st.error(f"**Missing Keywords:** {audit.get('missing_keywords', 'None detected')}")
-                    st.success(f"**Primary Keyword Cluster:** {audit.get('primary_keyword_cluster', '')}")
-                    
-                    # 2. Headline Strategy
-                    st.markdown("### 2. Headline Optimization")
-                    headlines = seo_data.get('headline_optimization', {})
-                    st.info(f"**Strategy:** {headlines.get('strategy', '')}")
-                    for opt in headlines.get('options', []):
-                        st.write(f"- {opt}")
+                        # Auto-extract banner content (hook, tagline, LinkedIn URL)
+                        target_role = extracted.get('role', 'Professional')
+                        banner_content = engine.extract_banner_content(li_resume_text, target_role)
                         
-                    # 3. About Section
-                    st.markdown("### 3. About Section Rewrite")
-                    st.write(seo_data.get('about_section_seo', ''))
-                    
-                    # 4. Experience Rewrites
-                    st.markdown("### 4. Experience Optimization")
-                    for exp in seo_data.get('experience_rewrites', []):
-                        st.markdown(f"**Role:** {exp.get('original_role', 'Current Role')}")
-                        st.markdown(f"**Instruction:** {exp.get('instruction', '')}")
-                        for bullet in exp.get('optimized_bullet_points', []):
-                            st.write(f"- {bullet}")
-                            
-                    # 5. Skills Ordering
-                    st.markdown("### 5. Skill Section Ordering")
-                    skills = seo_data.get('skills_section_ordering', {})
-                    st.markdown(f"**📌 Pin Top 3:** {skills.get('top_3_pinned', '')}")
-                    st.markdown(f"**Industry:** {skills.get('industry_knowledge', '')}")
-                    st.markdown(f"**Tools:** {skills.get('tools_technologies', '')}")
-                    
-                    # 6. Hidden Factors
-                    st.markdown("### 6. Hidden Ranking Factors")
-                    for factor in seo_data.get('hidden_ranking_factors', []):
-                        st.write(f"- {factor}")
+                        # Update banner customization fields
+                        if banner_content:
+                            st.session_state['custom_hook_input'] = banner_content.get('custom_hook', '')
+                            st.session_state['custom_tagline_input'] = banner_content.get('custom_tagline', '')
+                            # Update portfolio URL if LinkedIn URL was extracted
+                            if banner_content.get('linkedin_url'):
+                                st.session_state['portfolio_url_input'] = banner_content.get('linkedin_url')
                         
-                    # Download JSON
-                    import json
-                    st.download_button(
-                        label="Download SEO Audit (JSON)",
-                        data=json.dumps(seo_data, indent=2),
-                        file_name="LinkedIn_SEO_Audit.json",
-                        mime="application/json"
-                    )
-                else:
-                    st.error("Failed to generate SEO Audit. Please try again.")
-        else:
-            st.error("Please provide Target Role, Region, and Upload Resume.")
+                        st.session_state['extracted_file_wizard'] = li_resume_file.name
+                        st.rerun()
 
-    st.divider()
+    # --- Step 2: Define Strategy ---
+    st.subheader("Step 2: Define Your Strategy")
+    with st.expander("🎯 Target Role & Market", expanded=True):
+        col_s1, col_s2 = st.columns(2)
+        with col_s1:
+            li_role = st.text_input("Target Job Role", key="li_role_input", placeholder="e.g. Senior Product Manager")
+            li_stack = st.text_input("Tech Stack / Core Skills", key="li_stack_input", placeholder="e.g. Python, AWS, React")
+            li_market = st.selectbox("Target Market", ["India", "UAE", "USA", "Europe", "Other"], key="li_market_select")
+        with col_s2:
+            li_region = st.text_input("Target Location (City)", key="li_region_input", placeholder="e.g. Dubai")
+            li_industry = st.selectbox("Target Industry", ["Technology", "Finance", "Consulting", "Healthcare", "Retail", "Other"], key="li_industry_select")
+            
+        st.info(f"ℹ️ **Strategy Note:** Optimizing for **{li_market}** will adjust the tone to be more *{'Formal & Executive' if li_market == 'UAE' else 'Skill-Centric & Competitive'}*.")
 
-    # --- Feature: Visual Audit (New) ---
-    st.subheader("🎨 Visual Brand Audit")
-    st.info("Audit your Profile Photo and Banner for trust, authority, and industry fit.")
+    # --- Step 3: Add Context (Optional) ---
+    st.subheader("Step 3: Add Context (Optional)")
+    with st.expander("🖼️ Visuals & URL (Click to Expand)", expanded=False):
+        li_url = st.text_input("LinkedIn URL", value=st.session_state.get('li_url_wiz', ''), placeholder="https://linkedin.com/in/...", key="li_url_input")
+        vis_context = st.text_area("Visual Context (Describe your photo/banner)", placeholder="e.g. I have a professional headshot in a suit, and a banner showing code.", key="vis_context_input")
+
+    # --- Step 4: Generate & Report ---
+    st.subheader("Step 4: Generate Master Kit")
     
-    col_vis1, col_vis2 = st.columns(2)
-    with col_vis1:
-        vis_industry = st.selectbox("Industry Vibe", ["Corporate / Banking", "Modern Tech Startup", "Consulting / Agency", "Academic / Research", "Creative / Design"])
-    with col_vis2:
-        vis_input_method = st.radio("Input Method", ["Upload Image", "Describe Visuals"])
-        
-    vis_context = ""
-    if vis_input_method == "Upload Image":
-        vis_file = st.file_uploader("Upload Profile/Banner Screenshot", type=["png", "jpg", "jpeg"], key="vis_uploader")
-        if vis_file:
-            st.image(vis_file, caption="Visual Input", width=300)
-            vis_context = "Image provided. Analyze the visual elements visible in the uploaded image."
-            # In a real scenario, we'd pass the image bytes to a vision model. 
-            # For now, we'll ask the user to describe it if the model isn't vision-enabled, 
-            # OR we assume the backend handles the image (which our mock/Gemini 1.5 Pro can).
-            # Let's assume we pass a description for now to be safe with the text-only prompt, 
-            # or we can try to pass the image if the backend supports it.
-            # The prompt expects "Visual Input" text. Let's ask the user to describe it for better results with text-only models,
-            # or if we are using Gemini Vision, we could pass the image.
-            # Given the prompt is text-based ("Visual Input: {visual_input}"), let's stick to text description for now 
-            # or auto-convert image to description if we had a captioning tool.
-            # To keep it simple and robust:
-            vis_context = "User uploaded an image. (Note: For best results, please also describe the image below if the AI cannot see it)."
-    
-    vis_desc = st.text_area("Describe your Profile Photo & Banner (or add context to upload)", placeholder="e.g. Me in a suit, white background. Banner is a city skyline.")
-    
-    if vis_desc:
-        vis_context = vis_desc
-
-    if st.button("Run Visual Audit"):
-        if li_role and vis_context:
-            with st.spinner("Auditing Visual Brand..."):
-                vis_data = engine.generate_linkedin_visual_audit(li_role, vis_industry, vis_context)
-                
-                if vis_data:
-                    st.success("Visual Audit Complete!")
-                    
-                    # 1. Profile Photo
-                    photo = vis_data.get('profile_photo_audit', {})
-                    st.markdown(f"### 👤 Profile Photo (Score: {photo.get('score', '?')}/10)")
-                    st.write(f"**Impression:** {photo.get('impression_analysis', '')}")
-                    st.info(f"**Tip:** {photo.get('improvement_tip', '')}")
-                    
-                    # 2. Banner Image
-                    banner = vis_data.get('banner_image_audit', {})
-                    st.markdown(f"### 🖼️ Banner Image (Score: {banner.get('score', '?')}/10)")
-                    st.write(f"**Relevance:** {banner.get('relevance_check', '')}")
-                    st.success(f"**Suggestion:** {banner.get('suggestion', '')}")
-                    
-                    # 3. Consistency
-                    st.markdown("### 🧠 Psychological Consistency")
-                    st.write(vis_data.get('psychological_consistency', ''))
-                    
-                    # Download JSON
-                    import json
-                    st.download_button(
-                        label="Download Visual Audit (JSON)",
-                        data=json.dumps(vis_data, indent=2),
-                        file_name="LinkedIn_Visual_Audit.json",
-                        mime="application/json"
-                    )
-                else:
-                    st.error("Failed to generate Visual Audit. Please try again.")
-        else:
-            st.error("Please provide Target Role and Visual Description.")
-
-    st.divider()
-
-    # --- Feature: Master Optimization Kit (New) ---
-    st.subheader("👑 Master Optimization Kit (All-in-One)")
-    st.info("Generate the ultimate LinkedIn transformation: SEO + Text + Visuals in one click.")
-    
-    with st.expander("🛠️ Service Provider Workflow (How to use)"):
-        st.markdown("""
-        **Follow these steps to gather data for your client:**
-        1. **Get the URL:** Ask the client for their LinkedIn URL and paste it in the `Current LinkedIn URL` slot below.
-        2. **Get the Text:** Open their profile, copy all text (About, Experience, Skills), and paste it into the `Resume Content` text area at the top of this page.
-        3. **Get the Images:** Take a screenshot of their Profile Header (Photo + Banner) and upload it or describe it in the `Visual Brand Audit` section.
-        
-        **Important:** Please ensure all inputs (Role, Region, Resume, Visuals, URL) are provided above before generating.
-        """)
-    
-    li_url = st.text_input("Current LinkedIn URL", placeholder="e.g. https://www.linkedin.com/in/your-name")
-
-    if st.button("Generate Master Kit"):
-        if li_role and li_region and li_resume and vis_context and li_url:
-            with st.spinner("Generating Master Optimization Kit..."):
-                # Use the industry from Visual Audit section if selected, else default
-                industry = vis_industry if 'vis_industry' in locals() else "Technology"
-                
-                master_data = engine.generate_linkedin_master_kit(li_role, li_region, industry, li_resume, vis_context, li_url)
+    if st.button("🚀 Generate Optimization Kit", type="primary"):
+        if li_resume_text and li_role and li_region:
+            with st.spinner("🤖 AI is analyzing 50+ ranking factors..."):
+                # Call Engine
+                master_data = engine.generate_linkedin_master_kit(li_role, li_region, li_industry, li_resume_text, vis_context, li_url)
                 
                 if master_data:
-                    st.success("Master Kit Generated!")
-                    
-                    # 1. URL & Settings Audit
-                    st.markdown("### 1. URL & Settings Audit")
-                    url_audit = master_data.get('url_settings_audit', {})
-                    url_opt = url_audit.get('url_optimization', {})
-                    st.write(f"**Status:** {url_opt.get('status', '')}")
-                    st.info(f"**Fix:** {url_opt.get('fix', '')}")
-                    st.warning(f"**Visibility:** {url_audit.get('public_visibility', '')}")
-
-                    # 2. SEO Strategy
-                    st.markdown("### 2. SEO Strategy Audit")
-                    seo = master_data.get('seo_strategy_audit', {})
-                    st.write("**Keyword Gaps:**")
-                    for gap in seo.get('keyword_gap_analysis', []):
-                        st.write(f"- {gap}")
-                    st.write("**Primary Cluster:**")
-                    for cluster in seo.get('primary_keyword_cluster', []):
-                        st.write(f"- {cluster}")
-                        
-                    # 3. Text Optimization
-                    st.markdown("### 3. Text Optimization")
-                    text_opt = master_data.get('text_optimization', {})
-                    
-                    st.write("**Headline Options:**")
-                    for opt in text_opt.get('headline_options', []):
-                        st.write(f"- {opt}")
-                        
-                    st.write("**About Section:**")
-                    about = text_opt.get('about_section', {})
-                    st.markdown(f"> {about.get('hook', '')}")
-                    st.markdown(f"{about.get('body', '')}")
-                    
-                    st.write("**Experience Rewrite:**")
-                    exp = text_opt.get('experience_rewrites', {})
-                    st.markdown(f"*{exp.get('role', 'Role')}*")
-                    for stmt in exp.get('impact_statements', []):
-                        st.write(f"- {stmt}")
-                        
-                    # 4. Visual Audit
-                    st.markdown("### 4. Visual Audit")
-                    vis = master_data.get('visual_audit', {})
-                    photo = vis.get('profile_photo_check', {})
-                    banner = vis.get('banner_image_check', {})
-                    
-                    col_m1, col_m2 = st.columns(2)
-                    with col_m1:
-                        st.write("**Profile Photo:**")
-                        st.write(f"Score: {photo.get('technical_score', '?')}/10")
-                        st.info(f"Fix: {photo.get('fix', '')}")
-                    with col_m2:
-                        st.write("**Banner:**")
-                        st.write(f"Relevance: {banner.get('relevance', '')}")
-                        st.success(f"Rec: {banner.get('recommendation', '')}")
-                    
-                    # Download JSON
-                    import json
-                    st.download_button(
-                        label="Download Master Kit (JSON)",
-                        data=json.dumps(master_data, indent=2),
-                        file_name="LinkedIn_Master_Kit.json",
-                        mime="application/json"
-                    )
+                    st.session_state['master_data_wiz'] = master_data
+                    st.success("🎉 Optimization Complete!")
                 else:
-                    st.error("Failed to generate Master Kit. Please try again.")
+                    st.error("Generation failed. Please try again.")
         else:
-            missing = []
-            if not li_role: missing.append("Target Role")
-            if not li_region: missing.append("Target Region")
-            if not li_resume: missing.append("Resume Content")
-            if not vis_context: missing.append("Visual Context (Upload or Describe)")
-            if not li_url: missing.append("LinkedIn URL")
+            st.warning("⚠️ Please complete Step 1 & 2 (Upload Resume, Target Role, and Location) to proceed.")
+
+    # --- Display Results ---
+    if 'master_data_wiz' in st.session_state:
+        data = st.session_state['master_data_wiz']
+        st.divider()
+        
+        # Tabs for Result View
+        res_tab1, res_tab2, res_tab3, res_tab4 = st.tabs(["📊 SEO Strategy", "✍️ Content Rewrite", "🎨 Visual Audit", "⚙️ Settings"])
+        
+        with res_tab1:
+            st.markdown("### Keyword Strategy")
+            seo = data.get('seo_strategy_audit', {})
+            st.write("**Primary Keywords:**")
+            for k in seo.get('primary_keyword_cluster', []):
+                st.caption(f"🔑 {k}")
+            st.write("**Missing Keywords:**")
+            for k in seo.get('keyword_gap_analysis', []):
+                st.error(f"❌ {k}")
+
+        with res_tab2:
+            st.markdown("### Content Optimization")
+            text = data.get('text_optimization', {})
+            st.info("**Headline Options:**")
+            for h in text.get('headline_options', []):
+                st.write(f"- {h}")
             
-            st.error(f"Please ensure all inputs are provided. Missing: {', '.join(missing)}")
+            st.markdown("---")
+            st.markdown("**About Section Hook:**")
+            st.write(text.get('about_section', {}).get('hook', ''))
+            
+            st.markdown("---")
+            st.markdown("**Experience Rewrite (Recent Role):**")
+            exp = text.get('experience_rewrites', {})
+            for bullet in exp.get('impact_statements', []):
+                st.success(f"✅ {bullet}")
+
+        with res_tab3:
+            st.markdown("### Visual Brand Audit")
+            vis = data.get('visual_audit', {})
+            photo = vis.get('profile_photo_check', {})
+            st.write(f"**Photo Score:** {photo.get('technical_score', '?')}/10")
+            st.info(f"💡 Fix: {photo.get('fix', '')}")
+            
+            banner = vis.get('banner_image_check', {})
+            st.write(f"**Banner Relevance:** {banner.get('relevance', '')}")
+
+        with res_tab4:
+            st.markdown("### URL & Settings")
+            url_audit = data.get('url_settings_audit', {})
+            st.write(f"**URL Status:** {url_audit.get('url_optimization', {}).get('status', '')}")
+            st.warning(f"**Visibility Check:** {url_audit.get('public_visibility', '')}")
+
+        # --- Download Section ---
+        st.divider()
+        st.subheader("📥 Download Your Report")
+        col_d1, col_d2 = st.columns(2)
+        
+        with col_d1:
+            # Generate PDF
+            from file_factory.doc_builder import create_linkedin_report_pdf
+            pdf_path = "LinkedIn_Optimization_Report.pdf"
+            if create_linkedin_report_pdf(data, pdf_path):
+                with open(pdf_path, "rb") as f:
+                    st.download_button(
+                        label="📄 Download Professional PDF Report",
+                        data=f,
+                        file_name="LinkedIn_Optimization_Report.pdf",
+                        mime="application/pdf",
+                        use_container_width=True
+                    )
+        
+        with col_d2:
+            import json
+            st.download_button(
+                label="💾 Download Raw JSON Data",
+                data=json.dumps(data, indent=2),
+                file_name="LinkedIn_Data.json",
+                mime="application/json",
+                use_container_width=True
+            )
 
     st.divider()
     
@@ -431,66 +352,199 @@ with tab4:
     
     # --- Feature 2: Visual Assets Factory ---
     st.subheader("🎨 Visual Assets Factory (Premium)")
-    st.info("Generate high-converting visuals: Impact Cards, Tech Badges, Carousels, and Banners.")
+    st.info("Generate high-converting visuals: Impact Cards, Tech Badges, Carousels, and Professional Banner Templates.")
     
-    if st.button("Generate Visual Kit"):
-        if li_resume and li_role:
-            with st.spinner("Extracting Data & Designing Assets..."):
-                # 1. Extract Data
-                vis_data = engine.extract_visual_content(li_resume, li_role)
-                
-                if vis_data:
+    # Banner Template Section
+    st.markdown("### 🎨 LinkedIn Banner Templates")
+    st.caption("Choose from 5 professional templates with attractive hooks and color combinations")
+    
+    col_template1, col_template2 = st.columns([2, 1])
+    
+    with col_template1:
+        # Template selector
+        template_options = {
+            'lead_generation': '🟡 Lead Generation (Yellow/Black)',
+            'professional_authority': '🔵 Professional Authority (Navy/Gold)',
+            'tech_innovator': '🔷 Tech Innovator (Cyan/Dark Gray)',
+            'executive_premium': '⚫ Executive Premium (Black/White/Gold)',
+            'creative_bold': '🟣 Creative Bold (Purple/Orange)',
+            'modern_gradient': '🌊 Modern Gradient (Blue/Cyan)',
+            'success_green': '🟢 Success Green (Forest Green/Gold)',
+            'elegant_rose': '🌹 Elegant Rose (White/Rose Red)'
+        }
+        
+        selected_template = st.selectbox(
+            "Select Banner Template",
+            options=list(template_options.keys()),
+            format_func=lambda x: template_options[x],
+            key="banner_template_select"
+        )
+        
+        # Show template preview info
+        from core_engine.visual_factory import VisualFactory
+        vf_temp = VisualFactory()
+        template_info = vf_temp.BANNER_TEMPLATES[selected_template]
+        
+        st.info(f"**Default Hook:** {template_info['hook']}")
+        st.caption(f"**Default Tagline:** {template_info['tagline']}")
+    
+    with col_template2:
+        # Manual Profile Photo Upload
+        vf_profile_photo = st.file_uploader(
+            "Profile Photo", 
+            type=["jpg", "png", "jpeg"], 
+            key="vf_profile_photo", 
+            help="Upload your profile photo for banner"
+        )
+    
+    # Customization inputs
+    col_custom1, col_custom2 = st.columns(2)
+    
+    with col_custom1:
+        custom_hook = st.text_input(
+            "Custom Hook (Optional)",
+            placeholder="Leave empty to use template default",
+            key="custom_hook_input",
+            help="Override the default hook text"
+        )
+        
+        custom_tagline = st.text_input(
+            "Custom Tagline (Optional)",
+            placeholder="Leave empty to use template default",
+            key="custom_tagline_input",
+            help="Override the default tagline"
+        )
+    
+    with col_custom2:
+        portfolio_url_input = st.text_input(
+            "Portfolio/LinkedIn URL",
+            value="https://linkedin.com/in/yourname",
+            key="portfolio_url_input",
+            help="URL for QR code"
+        )
+        
+        company_name_input = st.text_input(
+            "Company/Brand Name (Optional)",
+            placeholder="e.g., SAVERA Automation",
+            key="company_name_input"
+        )
+    
+    # Generate buttons
+    col_btn1, col_btn2 = st.columns(2)
+    
+    with col_btn1:
+        if st.button("🎨 Generate Banner Only", type="primary"):
+            if li_resume_text and li_role:
+                with st.spinner(f"Generating {template_info['name']} Banner..."):
                     from core_engine.visual_factory import VisualFactory
                     vf = VisualFactory()
                     
-                    # 2. Generate Assets
-                    col_v1, col_v2 = st.columns(2)
-                    col_v3, col_v4 = st.columns(2)
+                    # Save profile photo temporarily if uploaded
+                    photo_path = None
+                    if vf_profile_photo:
+                        import tempfile
+                        with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as tmp_file:
+                            tmp_file.write(vf_profile_photo.getvalue())
+                            photo_path = tmp_file.name
                     
-                    # Impact Card
-                    with col_v1:
-                        st.markdown("**1. Impact Card**")
-                        card_path = vf.generate_impact_card(vis_data.get('problem', 'Legacy System'), vis_data.get('solution', 'Microservices'))
-                        st.image(card_path, caption="Before/After Impact")
-                        with open(card_path, "rb") as file:
-                            st.download_button("Download Card", file, "Impact_Card.png", "image/png")
-
-                    # Tech Badge
-                    with col_v2:
-                        st.markdown("**2. Tech Stack Badge**")
-                        badge_path = vf.generate_tech_badge(vis_data.get('skills', 'Java, AWS'))
-                        st.image(badge_path, caption="Core Stack")
-                        with open(badge_path, "rb") as file:
-                            st.download_button("Download Badge", file, "Tech_Badge.png", "image/png")
-
-                    # 5-Slide Carousel
-                    with col_v3:
-                        st.markdown("**3. 5-Slide Case Study Deck**")
-                        pdf_path = vf.generate_carousel_slides(
-                            vis_data.get('title', 'Project Case Study'), 
-                            vis_data.get('results', []),
-                            problem=vis_data.get('problem', 'Challenge'),
-                            solution=vis_data.get('solution', 'Solution'),
-                            tech_stack=vis_data.get('skills', 'Tech Stack')
+                    # Generate banner with template
+                    banner_path = vf.generate_banner_with_template(
+                        template_key=selected_template,
+                        custom_hook=custom_hook if custom_hook else None,
+                        custom_tagline=custom_tagline if custom_tagline else None,
+                        profile_photo_path=photo_path,
+                        portfolio_url=portfolio_url_input,
+                        company_name=company_name_input if company_name_input else None,
+                        output_path=f"linkedin_banner_{selected_template}.png"
+                    )
+                    
+                    st.success(f"✅ {template_info['name']} Banner Generated!")
+                    st.image(banner_path, caption=f"{template_info['name']} Banner", use_container_width=True)
+                    
+                    with open(banner_path, "rb") as file:
+                        st.download_button(
+                            "📥 Download Banner",
+                            file,
+                            f"LinkedIn_Banner_{selected_template}.png",
+                            "image/png",
+                            use_container_width=True
                         )
-                        st.success("PDF Generated!")
-                        with open(pdf_path, "rb") as file:
-                            st.download_button("Download Carousel (PDF)", file, "Case_Study_Carousel.pdf", "application/pdf")
+            else:
+                st.error("Please upload a Resume and define your Target Role in Step 1 & 2 above.")
+    
+    with col_btn2:
+        if st.button("🎨 Generate Full Visual Kit"):
+            if li_resume_text and li_role:
+                with st.spinner("Extracting Data & Designing Assets..."):
+                    # 1. Extract Data
+                    vis_data = engine.extract_visual_content(li_resume_text, li_role)
+                    
+                    if vis_data:
+                        from core_engine.visual_factory import VisualFactory
+                        vf = VisualFactory()
+                        
+                        # 2. Generate Assets
+                        col_v1, col_v2 = st.columns(2)
+                        col_v3, col_v4 = st.columns(2)
+                        
+                        # Impact Card
+                        with col_v1:
+                            st.markdown("**1. Impact Card**")
+                            card_path = vf.generate_impact_card(vis_data.get('problem', 'Legacy System'), vis_data.get('solution', 'Microservices'))
+                            st.image(card_path, caption="Before/After Impact")
+                            with open(card_path, "rb") as file:
+                                st.download_button("Download Card", file, "Impact_Card.png", "image/png")
 
-                    # Recruiter Conversion Banner
-                    with col_v4:
-                        st.markdown("**4. Recruiter Conversion Banner**")
-                        # Use contact name or default
-                        name = data.get('contact', {}).get('name', 'Your Name')
-                        banner_path = vf.generate_linkedin_banner(name, li_role, "https://github.com")
-                        st.image(banner_path, caption="Custom Banner with QR")
-                        with open(banner_path, "rb") as file:
-                            st.download_button("Download Banner", file, "LinkedIn_Banner.png", "image/png")
+                        # Tech Badge
+                        with col_v2:
+                            st.markdown("**2. Tech Stack Badge**")
+                            badge_path = vf.generate_tech_badge(vis_data.get('skills', 'Java, AWS'))
+                            st.image(badge_path, caption="Core Stack")
+                            with open(badge_path, "rb") as file:
+                                st.download_button("Download Badge", file, "Tech_Badge.png", "image/png")
 
-                else:
-                    st.error("Could not extract visual data from resume.")
-        else:
-            st.error("Please upload a Resume first.")
+                        # 5-Slide Carousel
+                        with col_v3:
+                            st.markdown("**3. 5-Slide Case Study Deck**")
+                            pdf_path = vf.generate_carousel_slides(
+                                vis_data.get('title', 'Project Case Study'), 
+                                vis_data.get('results', []),
+                                problem=vis_data.get('problem', 'Challenge'),
+                                solution=vis_data.get('solution', 'Solution'),
+                                tech_stack=vis_data.get('skills', 'Tech Stack')
+                            )
+                            st.success("PDF Generated!")
+                            with open(pdf_path, "rb") as file:
+                                st.download_button("Download Carousel (PDF)", file, "Case_Study_Carousel.pdf", "application/pdf")
+
+                        # Template Banner
+                        with col_v4:
+                            st.markdown("**4. Template Banner**")
+                            
+                            # Save profile photo temporarily if uploaded
+                            photo_path = None
+                            if vf_profile_photo:
+                                import tempfile
+                                with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as tmp_file:
+                                    tmp_file.write(vf_profile_photo.getvalue())
+                                    photo_path = tmp_file.name
+                            
+                            banner_path = vf.generate_banner_with_template(
+                                template_key=selected_template,
+                                custom_hook=custom_hook if custom_hook else None,
+                                custom_tagline=custom_tagline if custom_tagline else None,
+                                profile_photo_path=photo_path,
+                                portfolio_url=portfolio_url_input,
+                                company_name=company_name_input if company_name_input else None
+                            )
+                            st.image(banner_path, caption="Template Banner")
+                            with open(banner_path, "rb") as file:
+                                st.download_button("Download Banner", file, "LinkedIn_Banner_Template.png", "image/png")
+
+                    else:
+                        st.error("Could not extract visual data from resume.")
+            else:
+                st.error("Please upload a Resume and define your Target Role in Step 1 & 2 above.")
 
     st.divider()
     st.subheader("🤖 Algorithmic Dominance (Tech-First Features)")
@@ -600,10 +654,23 @@ with tab3:
                     )
 
 
-# --- Tab 6: ATS Scanner ---
-with tab6:
+# --- Tab 7: ATS Scanner ---
+with tab7:
     render_ats_scanner(engine)
 
-# --- Tab 7: Job Search ---
-with tab7:
+# --- Tab 8: Job Search ---
+with tab8:
     render_job_search()
+
+# --- Tab 9: Global Mobility ---
+with tab9:
+    render_global_mobility_tab()
+
+# --- Tab 10: Interview Prep ---
+with tab10:
+    render_interview_prep_tab()
+
+# --- Tab 11: Legacy Migrator ---
+with tab11:
+    render_github_tools_tab()
+

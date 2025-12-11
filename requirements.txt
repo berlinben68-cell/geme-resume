@@ -4,3 +4,4 @@ pypdf
 python-docx
 streamlit-quill
 beautifulsoup4
+fpdf
