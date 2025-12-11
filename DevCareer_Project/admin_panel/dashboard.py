@@ -23,7 +23,7 @@ from admin_panel.tabs.naukri_optimizer import render_naukri_optimizer
 from admin_panel.tabs.ats_scanner import render_ats_scanner
 from admin_panel.tabs.job_search import render_job_search
 from admin_panel.tabs.cover_letter import render_cover_letter_builder
-from admin_panel.tabs.global_mobility import render_global_mobility_tab
+
 from admin_panel.tabs.interview_prep import render_interview_prep_tab
 from admin_panel.tabs.github_tools import render_github_tools_tab
 from utils.file_processor import extract_text_from_file
@@ -53,7 +53,7 @@ def get_engine(api_key):
 engine = get_engine(api_key)
 
 # Tabs for different modules
-tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10, tab11 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10 = st.tabs([
     "📄 Resume Builder", 
     "✉️ Cover Letter", 
     "🏗️ GitHub Architect", 
@@ -62,7 +62,6 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10, tab11 = st.tabs([
     "🇮🇳 Naukri Optimizer", 
     "📊 ATS Scanner",
     "💼 Job Search",
-    "🌍 Global Mobility",
     "🎤 Interview Prep",
     "🕰️ Legacy Migrator"
 ])
@@ -662,15 +661,13 @@ with tab7:
 with tab8:
     render_job_search()
 
-# --- Tab 9: Global Mobility ---
-with tab9:
-    render_global_mobility_tab()
 
-# --- Tab 10: Interview Prep ---
-with tab10:
+
+# --- Tab 9: Interview Prep ---
+with tab9:
     render_interview_prep_tab()
 
-# --- Tab 11: Legacy Migrator ---
-with tab11:
+# --- Tab 10: Legacy Migrator ---
+with tab10:
     render_github_tools_tab()
 
