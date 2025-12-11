@@ -38,7 +38,7 @@ if not api_key:
 if not api_key:
     try:
         api_key = st.secrets["GEMINI_API_KEY"]
-    except FileNotFoundError:
+    except (FileNotFoundError, KeyError):
         pass
 
 
